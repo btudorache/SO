@@ -6,7 +6,7 @@
 
 typedef struct Node {
     char key[KEY_SIZE];
-    void* value; 
+    char value[KEY_SIZE]; 
 } Node;
 
 typedef struct Hashmap {
@@ -105,10 +105,10 @@ void put_value(Hashmap* hashmap, char* key, void* value) {
     }
     
     if (strcmp(list[actual_bucket].key, key) == 0) {
-        list[actual_bucket].value = value;
+        strcpy(list[actual_bucket].value, value);
     } else {
         strcpy(list[actual_bucket].key, key);
-        list[actual_bucket].value = value;
+        strcpy(list[actual_bucket].value, value);
     }
 }
 
