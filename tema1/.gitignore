@@ -3,3 +3,7 @@ input.in
 so-cpp
 input_file_name
 err
+test_inputs
+header_path/
+input/
+test*
