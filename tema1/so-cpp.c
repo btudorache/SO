@@ -20,6 +20,7 @@
 #define DELIMS "\t []{}<>=+-*/%!&|^.,:;()\\"
 #define LINE_PARSING_DELIM " \r\n"
 #define EQUAL_SIGN_DELIM "="
+#define SLASH_STRING "\\"
 #define PATH_CHAR '/'
 
 #define EMPTY_LINE_LINUX "\r\n"
@@ -48,6 +49,12 @@ void free_matrix(char** input_file_lines, int num_lines) {
         free(input_file_lines[i]);
     }
     free(input_file_lines);
+}
+
+void free_everything(char** lines_array, Hashmap* hashmap, Hashmap* undefined_hashmap) {
+    free_hashmap(hashmap);
+    free_hashmap(undefined_hashmap);
+    free_matrix(lines_array, NUM_LINES);
 }
 
 int line_should_be_skipped(char* line) {
@@ -114,14 +121,22 @@ void check_branch(char line[LINE_LENGTH], Hashmap* hashmap, int* include_line, i
     }
 }
 
-void check_ifdef_ifndef(char line[LINE_LENGTH], Hashmap* hashmap, int* include_line, int* chosen_branch) {
+void check_ifdef_ifndef(char line[LINE_LENGTH], Hashmap* hashmap, int* include_line) {
     strtok(line, LINE_PARSING_DELIM);
     char* literal = strtok(NULL, LINE_PARSING_DELIM);
     
     if (strncmp(line, IFDEF_DIRECTIVE, strlen(IFDEF_DIRECTIVE)) == 0) {
-        toggle_branches(include_line, chosen_branch, has_key(hashmap, literal) == 1);
+        if (has_key(hashmap, literal)) {
+            *include_line = 1;
+        } else {
+            *include_line = 0;
+        }
     } else {
-        toggle_branches(include_line, chosen_branch, has_key(hashmap, literal) == 0);
+        if (!has_key(hashmap, literal)) {
+            *include_line = 1;
+        } else {
+            *include_line = 0;
+        }
     }
 }
 
@@ -132,11 +147,13 @@ char** expand_directives(char** input_file_lines, int num_lines, int* new_num_li
     int include_line = 1;
     int chosen_branch = 0;
 
+    int multiline_define_jump = 0;
+
     for (int i = 0; i < num_lines; i++) {
         char tmp[LINE_LENGTH];
         strcpy(tmp, input_file_lines[i]);
 
-        if (strncmp(input_file_lines[i], DEFINE_DIRECTIVE, strlen(DEFINE_DIRECTIVE)) == 0) {
+        if (strncmp(input_file_lines[i], DEFINE_DIRECTIVE, strlen(DEFINE_DIRECTIVE)) == 0 && include_line) {
             char key[SMALL_BUFFER_LEN];
             char value[SMALL_BUFFER_LEN];
             strcpy(value, "");
@@ -144,6 +161,34 @@ char** expand_directives(char** input_file_lines, int num_lines, int* new_num_li
             char* token = strtok(tmp, LINE_PARSING_DELIM);
             int count = 0;
             while (token != NULL) {
+                if (strncmp(token, SLASH_STRING, strlen(token)) == 0) {
+                    int check_next_line = 0;
+                    do {
+                        check_next_line = 0;
+                        strcpy(tmp, input_file_lines[multiline_define_jump++ + i + 1]);
+                        char* line_token = strtok(tmp, LINE_PARSING_DELIM);
+                        while (line_token != NULL) {
+                            char* found_slash = strrchr(line_token, '\\');
+                            if (found_slash != NULL) {
+                                char extracted_char[SMALL_BUFFER_LEN] = {0};
+                                strncpy(extracted_char, line_token, found_slash - line_token);
+                                sprintf(value + strlen(value), "%s ", extracted_char);
+                                check_next_line = 1;
+                                break;
+                            }
+
+                            if (has_key(hashmap, line_token)) {
+                                sprintf(value + strlen(value), "%s ", (char*)get_value(hashmap, line_token));
+                            } else {
+                                sprintf(value + strlen(value), "%s ", line_token);
+                            }
+                            line_token = strtok(NULL, LINE_PARSING_DELIM);
+                        }
+                    } while (check_next_line);
+                    i += multiline_define_jump + 1;
+                    break;
+                }
+
                 if (count == 1) {
                     strcpy(key, token);
                 } else if (count >= 2) {
@@ -165,7 +210,7 @@ char** expand_directives(char** input_file_lines, int num_lines, int* new_num_li
             put_value(deleted_symbols_hashmap, key, "");
         } else if (strncmp(input_file_lines[i], IFDEF_DIRECTIVE, strlen(IFDEF_DIRECTIVE)) == 0 ||
                    strncmp(input_file_lines[i], IFNDEF_DIRECTIVE, strlen(IFNDEF_DIRECTIVE)) == 0) {
-            check_ifdef_ifndef(tmp, hashmap, &include_line, &chosen_branch);
+            check_ifdef_ifndef(tmp, hashmap, &include_line);
         } else if (strncmp(input_file_lines[i], IF_DIRECTIVE, strlen(IF_DIRECTIVE)) == 0 ||
                    strncmp(input_file_lines[i], ELIF_DIRECTIVE, strlen(ELIF_DIRECTIVE)) == 0) {
             check_branch(tmp, hashmap, &include_line, &chosen_branch);
@@ -209,75 +254,112 @@ char** expand_directives(char** input_file_lines, int num_lines, int* new_num_li
     return expanded_directives_lines;
 }
 
-// TODO: make recursive impl
-char** expand_include_file(char header_file_name[FILE_NAME_LENGTH], 
-                           char header_file_directory[][FILE_NAME_LENGTH], 
-                           int num_header_files, 
-                           int* num_include_lines)  {
+void extract_header_file_name(char line[LINE_LENGTH], char header_file_name[FILE_NAME_LENGTH]) {         
+    char tmp[LINE_LENGTH];
+    strcpy(tmp, line);
+    strtok(tmp, LINE_PARSING_DELIM);
+    // removing the first and last character from the extracted token
+    strcpy(header_file_name, strtok(NULL, LINE_PARSING_DELIM) + 1);
+    header_file_name[strlen(header_file_name) - 1] = '\0';
+}
+
+int expand_include_file(char*** expanded_include,
+                        char header_file_name[FILE_NAME_LENGTH], 
+                        char header_file_directory[][FILE_NAME_LENGTH], 
+                        int num_header_files, 
+                        int* num_include_lines)  {
     char** expanded_includes_file = allocate_lines_array(NUM_LINES, LINE_LENGTH);
     int expanded_includes_file_lines = 0;
     int found_file = 0;
 
+    char** partial_include_file = NULL;
+    int partial_include_file_num = 0;
+    int partial_status = 0;
+
     FILE* header_file_fp = fopen(header_file_name, "r");
     if (header_file_fp == NULL) {
-        FILE* dir_header_file;
         char dir_header_file_name[FILE_NAME_LENGTH] = {0};
         for (int i = 0; i < num_header_files; i++) {
             sprintf(dir_header_file_name, "%s/%s", header_file_directory[i], header_file_name);
             
-            dir_header_file = fopen(dir_header_file_name, "r");
-            if (dir_header_file != NULL) {
+            header_file_fp = fopen(dir_header_file_name, "r");
+            if (header_file_fp != NULL) {
                 found_file = 1;
-                while (fgets(expanded_includes_file[expanded_includes_file_lines++], LINE_LENGTH, dir_header_file));
-                fclose(dir_header_file);
                 break;
             }
         }
     } else {
         found_file = 1;
-        while (fgets(expanded_includes_file[expanded_includes_file_lines++], LINE_LENGTH, header_file_fp));
-        fclose(header_file_fp);
-        // Make recursive impl
     }
 
     if (!found_file) {
-        perror("Error: ");
-        exit(EXIT_FAILURE);
+        return 1;
+    } else {
+        while (fgets(expanded_includes_file[expanded_includes_file_lines], LINE_LENGTH, header_file_fp)) {
+            if (strncmp(expanded_includes_file[expanded_includes_file_lines], INCLUDE_DIRECTIVE, strlen(INCLUDE_DIRECTIVE)) == 0) {
+                char partial_header_file_name[FILE_NAME_LENGTH] = {0};
+                extract_header_file_name(expanded_includes_file[expanded_includes_file_lines], partial_header_file_name);
+
+                partial_status = expand_include_file(&partial_include_file,
+                                                            partial_header_file_name,
+                                                            header_file_directory,
+                                                            num_header_files,
+                                                            &partial_include_file_num);
+                if (partial_status != 0) {
+                    free_matrix(partial_include_file, NUM_LINES);
+                    return 1;
+                }
+
+                for (int i = 0; i < partial_include_file_num; i++) {
+                    strcpy(expanded_includes_file[expanded_includes_file_lines + i + 1], partial_include_file[i]);
+                }
+
+                expanded_includes_file_lines += partial_include_file_num;
+                free_matrix(partial_include_file, NUM_LINES);
+            }
+            expanded_includes_file_lines++;
+        }
+        fclose(header_file_fp);
     }
 
     *num_include_lines = expanded_includes_file_lines;
-    return expanded_includes_file;
+    *expanded_include = expanded_includes_file;
+    return 0;
 }
 
-char** expand_includes(char** input_file_lines, int num_lines, int* new_num_lines, char header_file_directory[][FILE_NAME_LENGTH], int num_header_files) {
+int expand_includes(char*** expanded_include_lines, char** input_file_lines, int num_lines, int* new_num_lines, char header_file_directory[][FILE_NAME_LENGTH], int num_header_files) {
     char** expanded_includes_file = allocate_lines_array(NUM_LINES, LINE_LENGTH);
     int expanded_includes_file_len = 0;
+    int status = 0;
     for (int i = 0; i < num_lines; i++) {
         if (strncmp(input_file_lines[i], INCLUDE_DIRECTIVE, strlen(INCLUDE_DIRECTIVE)) == 0) {
             char header_file_name[FILE_NAME_LENGTH] = {0};         
-            char tmp[LINE_LENGTH];
-            strcpy(tmp, input_file_lines[i]);
-
-            strtok(tmp, LINE_PARSING_DELIM);
-            // removing the first and last character from the extracted token
-            strcpy(header_file_name, strtok(NULL, LINE_PARSING_DELIM) + 1);
-            header_file_name[strlen(header_file_name) - 1] = '\0';
+            extract_header_file_name(input_file_lines[i], header_file_name);
 
             int num_include_lines = 0;
-            char** expanded_include = expand_include_file(header_file_name, header_file_directory, num_header_files, &num_include_lines);
+            char** expanded_include = NULL;
+            int status = expand_include_file(&expanded_include, header_file_name, header_file_directory, num_header_files, &num_include_lines);
             for(int j = 0; j < num_include_lines; j++) {
                 strcpy(expanded_includes_file[expanded_includes_file_len++], expanded_include[j]);
             }
 
             free_matrix(expanded_include, NUM_LINES);
+            if (status != 0) {
+                break;
+            }
         } else {
             strcpy(expanded_includes_file[expanded_includes_file_len++], input_file_lines[i]);
         }
     }
 
     *new_num_lines = expanded_includes_file_len;
+    *expanded_include_lines = expanded_includes_file;
     free_matrix(input_file_lines, NUM_LINES);
-    return expanded_includes_file;
+
+    if (status != 0) {
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -294,8 +376,6 @@ int main(int argc, char **argv) {
     Hashmap* symbol_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
     Hashmap* deleted_symbols_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
 
-
-    // TODO: extract input flags as function
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], SYMBOL_FLAG, strlen(argv[i])) == 0) {
             add_input_symbol_mapping(argv[i + 1], symbol_hashmap);
@@ -334,14 +414,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!input_file_specified) {
-        scanf("%s", input_file_name);
-    }
-
     char** file_lines = allocate_lines_array(NUM_LINES, LINE_LENGTH);
     int num_lines = 0;
 
-    FILE* input_fp = fopen(input_file_name, "r");
+    FILE* input_fp = stdin;
+    if (input_file_specified) {
+        input_fp = fopen(input_file_name, "r");
+    }
+
     if (input_fp == NULL) {
         perror("fopen");
         free_hashmap(symbol_hashmap);
@@ -352,35 +432,29 @@ int main(int argc, char **argv) {
     fclose(input_fp);
 
     int expanded_includes_lines = 0;
-    char** expanded_include_lines = expand_includes(file_lines, num_lines, &expanded_includes_lines, header_file_directory, num_header_files);
+    char** expanded_include_lines  = NULL;
+    int status = expand_includes(&expanded_include_lines, file_lines, num_lines, &expanded_includes_lines, header_file_directory, num_header_files);
+    if (status != 0) {
+        free_everything(expanded_include_lines, symbol_hashmap, deleted_symbols_hashmap);
+        perror("Couldn't find header file");
+        exit(EXIT_FAILURE);
+    }
 
     int final_num_lines = 0;
     char** expanded_directives_lines = expand_directives(expanded_include_lines, expanded_includes_lines, &final_num_lines, symbol_hashmap, deleted_symbols_hashmap);
 
+    FILE* output_fp = stdout;
     if (output_file_specified) {
-        FILE* output_fp = fopen(output_file_name, "w");
-        if (output_fp == NULL) {
-            perror("fopen");
-            free_hashmap(symbol_hashmap);
-            exit(EXIT_FAILURE);
-        }
-
-        for (int i = 0; i < final_num_lines; i++) {
-            if (!line_should_be_skipped(expanded_directives_lines[i])) {
-                fprintf(output_fp, "%s", expanded_directives_lines[i]);
-            }
-        }
-        fclose(output_fp);
-    } else {
-        for (int i = 0; i < final_num_lines; i++) {
-            if (!line_should_be_skipped(expanded_directives_lines[i])) {
-                printf("%s", expanded_directives_lines[i]);
-            }
-        }
+        output_fp = fopen(output_file_name, "w");
     }
 
-    free_hashmap(symbol_hashmap);
-    free_hashmap(deleted_symbols_hashmap);
-    free_matrix(expanded_directives_lines, NUM_LINES);
+    for (int i = 0; i < final_num_lines; i++) {
+        if (!line_should_be_skipped(expanded_directives_lines[i])) {
+            fprintf(output_fp, "%s", expanded_directives_lines[i]);
+        }
+    }
+    fclose(output_fp);
+
+    free_everything(expanded_directives_lines, symbol_hashmap, deleted_symbols_hashmap);
     return 0;
 }
