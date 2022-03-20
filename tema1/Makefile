@@ -1,14 +1,14 @@
-CFLAGS=/nologo /W4 /EHsc /Za
+CFLAGS=/nologo /W4 /EHsc /Za /MD
 
-all: so-cpp
+all: so-cpp.exe
 
-so-cpp: so-cpp.o hashmap.o
+so-cpp.exe: so-cpp.o hashmap.o
 	cl hashmap.obj so-cpp.obj /Feso-cpp.exe
 
-so-cpp.o: so-cpp.c
+so-cpp.obj: so-cpp.c
 	cl /c so-cpp.c
 
-hashmap.o: hashmap.c
+hashmap.obj: hashmap.c
 	cl /c hashmap.c
 
 clean:
