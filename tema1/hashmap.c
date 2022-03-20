@@ -49,19 +49,19 @@ int has_key(Hashmap* hashmap, char* key) {
 void* get_value(Hashmap* hashmap, char* key) {    
     unsigned long hash_value = hash((unsigned char *)key);
     int bucket = (int)(hash_value % hashmap->size);
-
     Node* list = hashmap->list;
+    int i = 0;
     if (strcmp(list[bucket].key, key) == 0) {
         return list[bucket].value;
     }
 
-    for (int i = bucket + 1; i < hashmap->size; i++) {
+    for (i = bucket + 1; i < hashmap->size; i++) {
         if (strcmp(list[i].key, key) == 0) {
             return list[i].value;
         }
     }
 
-    for (int i = 0; i < bucket; i++) {
+    for (i = 0; i < bucket; i++) {
         if (strcmp(list[i].key, key) == 0) {
             return list[i].value;
         }
@@ -73,14 +73,14 @@ void* get_value(Hashmap* hashmap, char* key) {
 void put_value(Hashmap* hashmap, char* key, void* value) {
     unsigned long hash_value = hash((unsigned char *)key);
     int bucket = (int)(hash_value % hashmap->size);
-
     int actual_bucket = -1;
     Node* list = hashmap->list;
+    int i = 0;
     if (strcmp(list[bucket].key, "") == 0 || 
         strcmp(list[bucket].key, key) == 0) {
         actual_bucket = bucket;
     } else {
-        for (int i = bucket + 1; i < hashmap->size; i++) {
+        for (i = bucket + 1; i < hashmap->size; i++) {
             if (strcmp(list[i].key, "") == 0 || 
                 strcmp(list[i].key, key) == 0) {
                 actual_bucket = i;
@@ -89,7 +89,7 @@ void put_value(Hashmap* hashmap, char* key, void* value) {
         }
 
         if (actual_bucket == -1) {
-            for (int i = 0; i < hashmap->size; i++) {
+            for (i = 0; i < hashmap->size; i++) {
                 if (strcmp(list[i].key, "") == 0 || 
                     strcmp(list[i].key, key) == 0) {
                     actual_bucket = i;
