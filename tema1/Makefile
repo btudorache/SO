@@ -1,6 +1,6 @@
 CFLAGS=/nologo /W4 /EHsc /Za /MD
 
-all: so-cpp.exe
+build: so-cpp.exe
 
 so-cpp.exe: so-cpp.obj hashmap.obj
 	cl hashmap.obj so-cpp.obj /Feso-cpp.exe

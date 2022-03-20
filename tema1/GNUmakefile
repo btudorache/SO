@@ -1,4 +1,4 @@
-all: so-cpp
+build: so-cpp
 
 so-cpp: so-cpp.o hashmap.o
 	gcc hashmap.o so-cpp.o -o so-cpp
