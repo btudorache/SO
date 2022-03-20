@@ -4,11 +4,11 @@
 
 #include "hashmap.h"
 
-#define INITIAL_HASHMAP_SIZE 10000
+#define INITIAL_HASHMAP_SIZE 4000
 #define FILE_NAME_LENGTH 80
 #define INITIAL_HEADER_FILES_LENGTH 100
 #define LINE_LENGTH 256
-#define NUM_LINES 500
+#define NUM_LINES 150
 #define SMALL_BUFFER_LEN 20
 #define SMALL_ARRAY_SIZE 200
 
@@ -359,6 +359,11 @@ int expand_includes(char*** expanded_include_lines, char** input_file_lines, int
     int num_include_lines = 0;
     char** expanded_include = NULL;
     char** expanded_includes_file = allocate_lines_array(NUM_LINES, LINE_LENGTH);
+    if (expanded_includes_file == NULL) {
+        free_matrix(input_file_lines, NUM_LINES);
+        return 1;
+    }
+
     for (i = 0; i < num_lines; i++) {
         if (strncmp(input_file_lines[i], INCLUDE_DIRECTIVE, strlen(INCLUDE_DIRECTIVE)) == 0) {         
             extract_header_file_name(input_file_lines[i], header_file_name);
@@ -466,6 +471,7 @@ int main(int argc, char **argv) {
     if (input_fp == NULL) {
         perror("fopen");
         free_hashmap(symbol_hashmap);
+        free_hashmap(deleted_symbols_hashmap);
         exit(EXIT_FAILURE);
     }
 
@@ -491,6 +497,12 @@ int main(int argc, char **argv) {
 
     if (output_file_specified) {
         output_fp = fopen(output_file_name, "w");
+    }
+
+    if (output_fp == NULL) {
+        free_everything(expanded_directives_lines, symbol_hashmap, deleted_symbols_hashmap);
+        perror("fopen");
+        exit(EXIT_FAILURE);
     }
 
     for (i = 0; i < final_num_lines; i++) {
