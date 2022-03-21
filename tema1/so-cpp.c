@@ -402,8 +402,6 @@ int main(int argc, char **argv) {
     char output_file_name[FILE_NAME_LENGTH] = {0};
     int num_header_files = 0;
     char header_file_directory[INITIAL_HEADER_FILES_LENGTH][FILE_NAME_LENGTH] = {0};
-    Hashmap* symbol_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
-    Hashmap* deleted_symbols_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
     char* split_pos = NULL;
     int i = 1;
     int j = 0; 
@@ -416,6 +414,20 @@ int main(int argc, char **argv) {
     int status = 0;
     int final_num_lines = 0;
     char** expanded_directives_lines = NULL;
+    Hashmap* symbol_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
+    Hashmap* deleted_symbols_hashmap = init_hashmap(INITIAL_HASHMAP_SIZE);
+
+    if (symbol_hashmap == NULL) {
+        perror("calloc");
+        exit(EXIT_FAILURE);
+    }
+
+    if (deleted_symbols_hashmap == NULL) {
+        free_hashmap(symbol_hashmap);
+        perror("calloc");
+        exit(EXIT_FAILURE);
+    }
+
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], SYMBOL_FLAG, strlen(argv[i])) == 0) {
             add_input_symbol_mapping(argv[i + 1], symbol_hashmap);
