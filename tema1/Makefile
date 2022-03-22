@@ -1,4 +1,4 @@
-CFLAGS=/nologo /W4 /EHsc /Za /MD
+CFLAGS=/nologo /W3 /MD
 
 build: so-cpp.exe
 
