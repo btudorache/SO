@@ -30,13 +30,16 @@ static unsigned long hash(unsigned char *str) {
 Hashmap* init_hashmap(int size) {
     Hashmap* hashmap = malloc(sizeof(Hashmap));
     if (hashmap == NULL) {
-        return NULL;
+        perror("malloc");
+        exit(12);
     }
 
     hashmap->size = size;
     hashmap->list = calloc(size, sizeof(Node));
     if (hashmap->list == NULL) {
         free(hashmap->list);
+        perror("calloc");
+        exit(12);
         return NULL;
     }
 

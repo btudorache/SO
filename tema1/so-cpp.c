@@ -36,16 +36,22 @@
 #define IFDEF_DIRECTIVE "#ifdef"
 #define IFNDEF_DIRECTIVE "#ifndef"
 
+#define EXIT_TWELVE 12
+
 char** allocate_lines_array(int num_lines, int line_length) {
     int i = 0;
     char** new_char_matrix = calloc(num_lines, sizeof(char*));
     if (new_char_matrix == NULL) {
+        perror("calloc");
+        exit(EXIT_TWELVE);
         return NULL;
     }
     for (i = 0; i < num_lines; i++) {
         new_char_matrix[i] = calloc(line_length, sizeof(char));
         if (new_char_matrix[i] == NULL) {
             free(new_char_matrix);
+            perror("calloc");
+            exit(EXIT_TWELVE);
             return NULL;
         }
     }
@@ -419,13 +425,13 @@ int main(int argc, char **argv) {
 
     if (symbol_hashmap == NULL) {
         perror("calloc");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     if (deleted_symbols_hashmap == NULL) {
         free_hashmap(symbol_hashmap);
         perror("calloc");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     for (i = 1; i < argc; i++) {
@@ -462,7 +468,7 @@ int main(int argc, char **argv) {
             }
         } else {
             perror("Input args");
-            exit(EXIT_FAILURE);
+            exit(EXIT_TWELVE);
         }
     }
 
@@ -471,7 +477,7 @@ int main(int argc, char **argv) {
         free_hashmap(symbol_hashmap);
         free_hashmap(deleted_symbols_hashmap);
         perror("calloc");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     num_lines = 0;
@@ -484,7 +490,7 @@ int main(int argc, char **argv) {
         perror("fopen");
         free_hashmap(symbol_hashmap);
         free_hashmap(deleted_symbols_hashmap);
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     while (fgets(file_lines[num_lines++], LINE_LENGTH, input_fp));
@@ -496,7 +502,7 @@ int main(int argc, char **argv) {
     if (status != 0) {
         free_everything(expanded_include_lines, symbol_hashmap, deleted_symbols_hashmap);
         perror("Couldn't find header file");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     final_num_lines = 0;
@@ -504,7 +510,7 @@ int main(int argc, char **argv) {
     if (expanded_directives_lines == NULL) {
         free_everything(expanded_include_lines, symbol_hashmap, deleted_symbols_hashmap);
         perror("Couldn't expand defines");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     if (output_file_specified) {
@@ -514,7 +520,7 @@ int main(int argc, char **argv) {
     if (output_fp == NULL) {
         free_everything(expanded_directives_lines, symbol_hashmap, deleted_symbols_hashmap);
         perror("fopen");
-        exit(EXIT_FAILURE);
+        exit(EXIT_TWELVE);
     }
 
     for (i = 0; i < final_num_lines; i++) {
