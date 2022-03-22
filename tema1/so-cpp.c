@@ -322,7 +322,8 @@ int expand_include_file(char*** expanded_include,
     }
 
     if (!found_file) {
-        return 1;
+        perror("Couldn't find file");
+        exit(EXIT_FAILURE);
     } else {
         while (fgets(expanded_includes_file[expanded_includes_file_lines], LINE_LENGTH, header_file_fp)) {
             if (strncmp(expanded_includes_file[expanded_includes_file_lines], INCLUDE_DIRECTIVE, strlen(INCLUDE_DIRECTIVE)) == 0) {

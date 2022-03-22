@@ -19,11 +19,12 @@ typedef struct Hashmap {
  */
 static unsigned long hash(unsigned char *str) {
     unsigned long hash = 5381;
-    int c;
+    int c = 1;
 
-    while ((c = *str++))
+    while (c) {
+        c = *str++;
         hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
+    }
     return hash;
 }
 
