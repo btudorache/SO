@@ -44,7 +44,6 @@ char** allocate_lines_array(int num_lines, int line_length) {
     if (new_char_matrix == NULL) {
         perror("calloc");
         exit(EXIT_TWELVE);
-        return NULL;
     }
     for (i = 0; i < num_lines; i++) {
         new_char_matrix[i] = calloc(line_length, sizeof(char));
@@ -52,7 +51,7 @@ char** allocate_lines_array(int num_lines, int line_length) {
             free(new_char_matrix);
             perror("calloc");
             exit(EXIT_TWELVE);
-            return NULL;
+
         }
     }
     return new_char_matrix;
