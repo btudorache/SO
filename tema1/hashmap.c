@@ -40,7 +40,6 @@ Hashmap* init_hashmap(int size) {
         free(hashmap->list);
         perror("calloc");
         exit(12);
-        return NULL;
     }
 
     return hashmap;
