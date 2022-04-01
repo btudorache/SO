@@ -7,3 +7,6 @@ test_inputs
 header_path/
 input/
 test*
+334*
+checkpatch.pl
+.vscode
