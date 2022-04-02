@@ -55,7 +55,7 @@ SO_FILE *so_fopen(const char *pathname, const char *mode) {
         return NULL;
     }
 
-    fd = open(pathname, fp_flags);
+    fd = open(pathname, fp_flags, S_IRWXU | S_IRWXG | S_IRWXO);
     if (fd < 0) {
         return NULL;
     }
