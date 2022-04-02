@@ -211,8 +211,11 @@ int so_ferror(SO_FILE *stream) {
 
 SO_FILE *so_popen(const char *command, const char *type) {
     int pipefd[2];
-    char *const argvec[] = {"sh", "-c", command, NULL};
-    SO_FILE* process_so_file = calloc(1, sizeof(SO_FILE));
+    char non_const_command[50];
+    SO_FILE* process_so_file;
+    strcpy(non_const_command, command);
+    char *const argvec[] = {"sh", "-c", non_const_command, NULL};
+    process_so_file = calloc(1, sizeof(SO_FILE));
 
     pipe(pipefd);
     process_so_file->pid = fork();
@@ -234,6 +237,7 @@ SO_FILE *so_popen(const char *command, const char *type) {
     default:
         break;
     }
+    
     if (strncmp(type, "r", strlen("r")) == 0) {
         process_so_file->fd = pipefd[0];
         close(pipefd[1]);
