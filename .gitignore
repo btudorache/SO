@@ -10,3 +10,6 @@ test*
 334*
 checkpatch.pl
 .vscode
+/so_exec
+/so_test_prog
+/libso_loader.so
