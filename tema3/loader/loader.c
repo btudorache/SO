@@ -44,31 +44,31 @@ void unmapped_access_handler(int signum, siginfo_t *info, void *context) {
             page_table_t* page_table = (page_table_t*)segment->data;
             int page_num = (addr_value - segment->vaddr) / page_size;
             if (page_table->marked_pages[page_num] == 0) {
-                int vmem_to_allocate = page_size;
-                int mem_to_copy = page_size;
-                int rc;
-                char* mapped_area;
+                page_table->marked_pages[page_num] = 1;
 
+                int vmem_to_allocate = page_size;
                 if (page_num == page_table->num_vmem_pages - 1 && segment->mem_size % page_size != 0) {
                     vmem_to_allocate = segment->mem_size % page_size;
                 }
-
-                if (page_num >= page_table->num_file_pages) {
-                    mem_to_copy = 0;
-                } else if (page_num == page_table->num_file_pages - 1 && segment->file_size % page_size != 0) {
-                    mem_to_copy = segment->file_size % page_size;
-                }
-
-                page_table->marked_pages[page_num] = 1;
-
-                mapped_area = mmap((void*)(segment->vaddr + page_num * page_size), vmem_to_allocate, PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, 0, 0);
+                char* mapped_area = mmap((void*)(segment->vaddr + page_num * page_size), 
+                                         vmem_to_allocate, 
+                                         PROT_WRITE, MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, 
+                                         0, 
+                                         0);
                 if (mapped_area == MAP_FAILED) {
                     perror("mmap");
                     exit(EXIT_FAILURE);
                 }
 
+                int mem_to_copy = page_size;
+                if (page_num >= page_table->num_file_pages) {
+                    mem_to_copy = 0;
+                } else if (page_num == page_table->num_file_pages - 1 && segment->file_size % page_size != 0) {
+                    mem_to_copy = segment->file_size % page_size;
+                }
                 memcpy(mapped_area, exec_p + segment->offset + page_num * page_size, mem_to_copy);
-                rc = mprotect(mapped_area, vmem_to_allocate, segment->perm);
+                
+                int rc = mprotect(mapped_area, vmem_to_allocate, segment->perm);
                 if (rc == ERROR_RES) {
                     perror("mprotect");
 			        exit(EXIT_FAILURE);
@@ -88,11 +88,11 @@ void unmapped_access_handler(int signum, siginfo_t *info, void *context) {
 
 int so_init_loader(void) {
 	struct sigaction action = { 0 };
-
 	action.sa_flags = SA_SIGINFO;
 	action.sa_sigaction = &unmapped_access_handler;
     sigemptyset(&action.sa_mask);
 	sigaddset(&action.sa_mask, SIGSEGV);
+
 	if (sigaction(SIGSEGV, &action, &default_action) == ERROR_RES) {
         perror("sigaction");
         exit(EXIT_FAILURE);
@@ -104,9 +104,6 @@ int so_init_loader(void) {
 }
 
 int so_execute(char *path, char *argv[]) {
-    int fexec;
-    long file_size;
-
 	exec = so_parse_exec(path);
 	if (!exec) {
 		return -1;
@@ -130,13 +127,13 @@ int so_execute(char *path, char *argv[]) {
         segment->data = page_table;
     }
 
-    fexec = open(path, O_RDONLY, 0644);
+    int fexec = open(path, O_RDONLY, 0644);
     if (fexec == -1) {
         perror("open");
         exit(EXIT_FAILURE);
     }
 	
-    file_size = lseek(fexec, 0L, SEEK_END);
+    long file_size = lseek(fexec, 0L, SEEK_END);
     lseek(fexec, 0L, SEEK_SET);
 
     exec_p = mmap(0, file_size, PROT_READ, MAP_PRIVATE, fexec, 0);
