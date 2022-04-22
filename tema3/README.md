@@ -1,57 +1,74 @@
-# Skeleton for building a ELF loader
+# Tema 3 sisteme de operare - Loader de executabile
 
-## Introduction
-This project contains a skeleton for building an
-[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) binary
-on-demand loader in Linux. The loader will provide two methods, defined in the
-`loader.h` header:
-* `int so_init_loader(void);` - initializes the on-demand loader
-* `int so_execute(char *path, char *argv[]);` - executes the binary located in
-`path` with the required `argv` arguments.
+334CA Tudorache Bogdan Mihai
 
-## Content
-The project contains of three components, each of them in its own
-directory:
-* `loader` - a dynamic library that can be used to run ELF binaries. It
-consists of the following files:
-  * `exec_parser.c` - Implements an ELF binary parser.
-  * `exec_parser.h` - The header exposed by the ELF parser.
-  * `loader.h` - The interface of the loader, described in the
-  [Introduction](#introduction) section.
-  * `loader.c` - This is where the loader should be implemented.
-  * `debug.h` - header for the `dprintf` function that can be used for logging
-  and debugging.
-* `exec` - a program that uses the `libso_loader.so` library to run an ELF
-binary received as argument.
-* `test_prog` - an ELF binary used to test the loader implementation.
+Tema contine implementarea unui loader de executabile simplist
+in limbajul **C** folosind API-ul **C POSIX**. 
 
-There project also contains 2 makefiles:
-* `Makefile` - builds the `libso_loader.so` library from the `loader`
-directory
-* `Makefile.example` - builds the `so_exec` and `so_test_prog` binaries from
-the `exec` and `test_prog` directories that can be used to test the loader.
+# Implementare
 
-## Usage Build the loader:
-```
-make
-```
+Implementarea loader-ului contine cateva puncte cheie despre care
+mertia vorbit mai in detaliu:
 
-This should generate the `libso_loader.so` library. Next, build the example:
+* Inregistrarea handler-ului de semnale **SIGSEV**
 
-```
-make -f Makefile.example
-```
+* Implementarea unei structuri cu care putem tine cont de status-ul maparii paginilor
 
-This should generate the `so_exec` and `so_test_prog` used for the test:
+* Maparea executabilului in memorie
 
-```
-LD_LIBRARY_PATH=. ./so_exec so_test_prog
-```
+* Tratarea propriu-zisa a page fault-urilor
 
-**NOTE:** the skeleton does not have the loader implemented, thus when running
-the command above, your program will crash!
+## Inregistrarea handler-ului de semnale SIGSEV
 
-## Notes
-This skeleton is provided by the Operating System team from the University
-Politehnica of Bucharest to their students to help them complete their
-Executable Loader assignment.
+Pentru a inregistra handler-ul de page fault-uri, am utilizat resursele clasice, adica
+structura de tip ```struct sigaction``` si functia ```sigaction()```, in care am populat
+si campul ```struct sigaction *oldact``` pentru a pastra o referinta la handler-ul default
+de SIGSEV. Pentru a obtine mai multe informatii despre cum s-a generat semnalul (cum ar fi adresa 
+la care s-a generat), am populat campul ```sigaction.sa_flags``` cu **SA_SIGINFO**.
+
+## Implementarea unei structuri cu care putem tine cont de status-ul maparii paginilor
+
+Aceasta structura este una foarte simplista, care se construieste
+pentru fiecare segment de date in parte, si care contine:
+
+* numarul de pagini virtuale din cadrul segmentului
+
+* numarul de pagini fizice din cadrul segmentului
+
+* un array de flag-uri de dimensiunea numarului de pagini virtuale
+care specifica daca pagina a fost mapata sau nu
+
+Structura se construieste pe baza structurii asociate unui segment ```so_seg_t```
+
+## Maparea executabilului in memorie
+
+Pe masura ce se ruleaza executabilul si se gasesc zone de memorie care
+nu sunt mapate, pe langa necesitatea maparii lor, mai trebuie sa copiem
+si datele din executabil in acea zona de memorie, asa ca a fost nevoie
+de maparea executabilului in memorie folosind functia ```mmap()```
+
+## Tratarea propriu-zisa a page fault-urilor
+
+Pentru tratarea page fault-urilor, am respectat in mare parte indicatiile
+specificate in enuntul temei:
+
+* Daca se genereaza fault la o adresa care nu se gaseste in nici un
+segment, inseamna ca a avut loc un acces invalid la memorie "pe bune",
+si se apeleaza handler-ul default
+
+* Daca se genereaza fault la o adresa care se gaseste intr-un segment dar
+pagina este deja mapata, inseamna ca se incearca accesarea acelei zone cu
+permisiuni pe care nu le avem, deci se apeleaza iar handler-ul default
+
+* In schimb, daca fault-ul se genereaza la o adresa care se gaseste in
+segmente si pagina nu este mapata: 
+
+  * se marcheaza pagina respectiva ca fiind mapata
+
+  * se mapeaza pagina cu permisiuni de write
+    initial pentru a fi siguri ca putem copia datele din executabil
+    folosind ```mmap()```
+
+  * copiem datele din executabil in zona de memorie mapata in functie de offset-ul specificat in structura segmentului
+
+  * re-mapam zona de memorie cu permisiunile specificate in segment cu ```mprotect()```
