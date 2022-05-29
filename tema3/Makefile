@@ -16,4 +16,4 @@ loader.o: loader/loader.c
 
 .PHONY: clean
 clean:
-	-rm -f exec_parser.o loader.o libso_loader.so
+	-rm -f exec_parser.o loader.o libso_loader.so so_exec so_test_prog
