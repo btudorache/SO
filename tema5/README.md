@@ -1,48 +1,24 @@
-Nume:
-Grupă:
+# Tema 5 sisteme de operare - Server web asincron
+334CA Tudorache Bogdan Mihai
 
-# Tema <NR> TODO
-# Este recomandat să folosiți diacritice
+Tema contine implementarea unui server web asincron de fisiere 
+in limbajul **C** folosind API-ul **C POSIX**. 
 
-Organizare
--
-1. Explicație pentru structura creată (sau soluția de ansamblu aleasă):
+# Implementare
 
-***Obligatoriu:***
-* De făcut referință la abordarea generală menționată în paragraful de mai sus. Aici se pot băga bucăți de cod/funcții - etc.
-* Consideri că tema este utilă?
-* Consideri implementarea naivă, eficientă, se putea mai bine?
+In cadrul temei am implementat doar transmiterea fisierelor statice.
 
-***Opțional:***
-* De menționat cazuri speciale (corner cases), nespecificate în enunț și cum au fost tratate.
+## Transmiterea fisierelor statice
 
+Initial, cand un nou client se conecteaza si primim o cerere http, este parsata cererea si se detecteaza
+daca se cere un fisier static. In caz afirmativ, initial se incearca trimiterea
+fisierului in intregime folosind ```sendfile()```. Tinand cont ca socketii de retea
+sunt in modul non-blocant, acest lucru se face printr-o structura do while.
 
-Implementare
--
+Daca fisierul nu poate fi transmis in intregime (poate buffer-ul de retea de transmitere
+este plin), se activeaza evenimentele de tip EPOLLOUT pe socket-ul respectiv, iar cand acest
+eveniment este declansat, incercam sa trimitem in continuare restul fisierului. In aceasta faza,
+daca fisierul a fost trimis in intregime, se finalizeaza operatia prin inchiderea conexiunii.
 
-* De specificat dacă întregul enunț al temei e implementat
-* Dacă există funcționalități extra, pe lângă cele din enunț - descriere succintă (maximum 3-4 rânduri/funcționalitate) + motivarea lor (maximum o frază)
-* De specificat funcționalitățile lipsă din enunț (dacă există) și menționat dacă testele reflectă sau nu acest lucru
-* Dificultăți întâmpinate
-* Lucruri interesante descoperite pe parcurs
-
-Cum se compilează și cum se rulează?
--
-* Explicație, ce biblioteci linkează, cum se face build
-* Cum se rulează executabilul, se rulează cu argumente (sau nu)
-
-Bibliografie
--
-
-* Resurse utilizate - toate resursele publice de pe internet/cărți/code snippets, chiar dacă sunt laboratoare de SO
-
-Git
--
-1. Link către repo-ul de git
-
-Ce să **NU**
--
-* Detalii de implementare despre fiecare funcție/fișier în parte
-* Fraze lungi care să ocolească subiectul în cauză
-* Răspunsuri și idei neargumentate
-* Comentarii și *TODO*-uri
+Este tratata si situatia in care calea detectata prin parsarea request-ului nu cere un fisier
+static sau dinamic.

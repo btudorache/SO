@@ -63,7 +63,6 @@ struct connection {
 	int sockfd;
 	char recv_buffer[BUFSIZ];
 	size_t recv_len;
-	char send_buffer[BUFSIZ];
 	off_t send_len;
 	enum connection_state state;
 
@@ -186,14 +185,6 @@ static void handle_new_connection(void)
 static enum connection_state receive_message(struct connection *conn)
 {
 	ssize_t bytes_recv;
-	int rc;
-	char abuffer[64];
-
-	rc = get_peer_address(conn->sockfd, abuffer, 64);
-	if (rc < 0) {
-		ERR("get_peer_address");
-		goto remove_connection;
-	}
 
     do {
         bytes_recv = recv(conn->sockfd, conn->recv_buffer + conn->recv_len, BUFSIZ, 0);
@@ -202,15 +193,6 @@ static enum connection_state receive_message(struct connection *conn)
 
     conn->state = STATE_RECEIVED_REQUEST;
     return STATE_RECEIVED_REQUEST;
-
-remove_connection:
-	rc = w_epoll_remove_ptr(epollfd, conn->sockfd, conn);
-	DIE(rc < 0, "w_epoll_remove_ptr");
-
-	/* remove current connection */
-	connection_remove(conn);
-
-	return STATE_CONNECTION_CLOSED;
 }
 
 /*
@@ -220,15 +202,7 @@ remove_connection:
 
 static enum connection_state send_remaining_message(struct connection *conn)
 {
-	int rc;
-	char abuffer[64];
-
-	rc = get_peer_address(conn->sockfd, abuffer, 64);
-	if (rc < 0) {
-		ERR("get_peer_address");
-		goto remove_connection;
-	}
-
+    int rc;
     if (conn->transfer == STATIC && conn->state == STATE_SENDING_REQUEST) {
         do {
             rc = sendfile(conn->sockfd, conn->fd, &conn->send_len, conn->file_size - conn->send_len);
@@ -248,15 +222,6 @@ static enum connection_state send_remaining_message(struct connection *conn)
     } 
 
 	return STATE_SENT_REQUEST;
-
-remove_connection:
-	rc = w_epoll_remove_ptr(epollfd, conn->sockfd, conn);
-	DIE(rc < 0, "w_epoll_remove_ptr");
-
-	/* remove current connection */
-	connection_remove(conn);
-
-	return STATE_CONNECTION_CLOSED;
 }
 
 /*
