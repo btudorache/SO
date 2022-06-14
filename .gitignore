@@ -16,6 +16,7 @@ checkpatch.pl
 /so_test_prog
 /libso_loader.so
 *.o
+*.so
 *.zip
 sum
 
