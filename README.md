@@ -10,7 +10,7 @@ Temele de la Sisteme de Operare 2021-2022. Au ca scop dezvoltarea unor bibliotec
 
 * Tema 3 - Implementarea unui **loader rudimentar de executabile**.
 
-* Tema 4 - Implementarea unui **scheduler de procese** rudimentar (nu am implementat aceasta tema, insa am prototipat sumar functiile/etapele necesare)
+* Tema 4 - Implementarea unui **scheduler de procese** user-level rudimentar
 
 * Tema 5 - Implementarea unui **server web asincron**.
 
